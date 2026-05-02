@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>百萬富翁 - BAFS 終極挑戰</title>
+  <style>
+    :root {
+      --bg: #020611;
+      --gold: #ffd700;
+      --blue: #1e3a8a;
+      --correct: #22c55e;
+      --wrong: #ef4444;
+      --text: #ffffff;
+    }
+
+    * { box-sizing: border-box; font-family: "Microsoft JhengHei", sans-serif; }
+    
+    body {
+      margin: 0;
+      background: radial-gradient(circle, #1e3a8a, #020611);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    /* 獎金樹 */
+    .money-tree {
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid var(--blue);
+      border-radius: 15px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 5px;
+    }
+
+    .level {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 15px;
+      border-radius: 20px;
+      color: #ff9d00;
+      font-weight: bold;
+      font-size: 14px;
+      opacity: 0.6;
+    }
+
+    .level.active {
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      color: black;
+      opacity: 1;
+      transform: scale(1.05);
+    }
+
+    .level.safe { color: white; border-bottom: 1px solid rgba(255,255,255,0.2); opacity: 1; }
+
+    /* 遊戲主區 */
+    .question-box {
+      background: linear-gradient(180deg, #0f172a, #000);
+      border: 2px solid #94a3b8;
+      border-radius: 50px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 25px;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .option {
+      background: rgba(15, 23, 42, 0.8);
+      border: 2px solid #64748b;
+      border-radius: 40px;
+      padding: 18px 25px;
+      cursor: pointer;
+      font-size: 16px;
+      text-align: left;
+      transition: all 0.2s;
+      color: white;
+      width: 100%;
+    }
+
+    .option:hover:not(.locked) { background: var(--blue); border-color: var(--gold); }
+    .option.selected { background: #f59e0b !important; color: black; border-color: white; }
+    .option.correct { background: var(--correct) !important; color: white; border-color: white; }
+    .option.wrong { background: var(--wrong) !important; color: white; }
+    .option.hidden { visibility: hidden; pointer-events: none; }
+
+    .lifelines {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .life-btn {
+      width: 70px;
+      height: 45px;
+      border: 2px solid white;
+      border-radius: 50%;
+      background: var(--blue);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .life-btn.used { opacity: 0.3; cursor: not-allowed; border-color: red; text-decoration: line-through; }
+
+    #timer {
+      font-size: 40px;
+      color: var(--gold);
+      text-align: center;
+      margin-bottom: 10px;
+      font-family: monospace;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+
+    .screen { display: none; flex-direction: column; align-items: center; }
+    .active-screen { display: flex; }
+
+    .btn-main {
+      padding: 15px 40px;
+      font-size: 20px;
+      background: var(--gold);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      color: black;
+    }
+
+    @media (max-width: 850px) {
+      .container { grid-template-columns: 1fr; }
+      .money-tree { display: none; }
+      .options-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="game-area">
+    <div id="start-screen" class="screen active-screen">
+      <h1 style="font-size: 50px; color: var(--gold); margin-bottom: 10px;">百萬富翁</h1>
+      <p style="margin-bottom: 30px;">BAFS 專業會計與商業挑戰</p>
+      <button class="btn-main" onclick="startGame()">開始遊戲</button>
+    </div>
+
+    <div id="play-screen" class="screen">
+      <div class="lifelines">
+        <button class="life-btn" id="l-50" onclick="handle5050()">50:50</button>
+        <button class="life-btn" id="l-expert" onclick="handleExpert()">專家</button>
+      </div>
+      <div id="timer">45</div>
+      <div class="question-box">
+        <div id="q-meta" style="color: var(--gold); font-size: 12px; margin-bottom: 8px;"></div>
+        <div id="q-text" style="font-size: 18px; line-height: 1.4;"></div>
+      </div>
+      <div class="options-grid" id="options-container"></div>
+    </div>
+
+    <div id="result-screen" class="screen">
+      <h1 id="res-title" style="font-size: 40px;">挑戰結束</h1>
+      <p id="res-money" style="font-size: 30px; color: var(--gold);"></p>
+      <button class="btn-main" onclick="location.reload()">重新開始</button>
+    </div>
+  </div>
+
+  <div class="money-tree" id="tree-container"></div>
+</div>
+
+<script>
+  const moneyLevels = ["1,000", "5,000", "10,000", "20,000", "50,000", "100,000", "250,000", "500,000", "750,000", "1,000,000"];
+  const questions = [
+    { id:"2025 No.9", q: "一家銀行提供一個投資計劃，每年回報率為 12%，每季複息計算。這投資計劃的實際回報率是多少？", opts: ["9.27%", "12.55%", "13.63%", "15.92%"], a: 1 },
+    { id:"2022 No.28", q: "下列哪項有關《更緊密經貿關係的安排》(CEPA) 的描述是正確的？", opts: ["香港與內地互認所有專業資格", "所有內地企業均可申請在香港聯交所主板上市", "香港企業將總部遷至內地可向內地政府申請免息貸款", "所有香港原產貨物進口內地時均可享有零關稅優惠"], a: 3 },
+    { id:"2019 No.22", q: "有關世界貿易組織的陳述正確的是：(1)調解糾紛 (2)提供談判平台 (3)為發展中國家提供財政支援", opts: ["只有 (1) 及 (2)", "只有 (1) 及 (3)", "只有 (2) 及 (3)", "(1)、(2)及 (3)"], a: 0 },
+    { id:"2018 No.25", q: "下列哪項有關風險和回報的陳述是正確的？", opts: ["市場風險是可以分散的", "高風險金融產品必有高回報", "迴避風險投資者喜歡債券多於定期存款", "保守退休人士通常喜歡投資債券多於股票"], a: 3 },
+    { id:"2019 No.24", q: "下列哪項有關恒生指數的陳述是正確的？", opts: ["它由 60 隻成分股組成", "它的所有成分股均是在香港聯交所主板上市的", "它反映亞太區股票市場的表現", "「資訊科技」是四個分類指數的其中一個"], a: 1 },
+    { id:"2025 No.4", q: "下列哪項是一家體育用品製造商實行「外判」的例子？", opts: ["以較低成本從其他國家購買原材料", "將其廠房遷往勞工成本較低的國家", "簽訂合約交由發展中國家的製造商生產運動鞋", "與海外分銷商合夥在發展中國家推出新型號"], a: 2 },
+    { id:"2014 No.30", q: "下列哪項有關亞太區經濟合作組織 (APEC) 的陳述是正確的？", opts: ["它為亞太地區的發展中國家提供貸款", "它支持亞太地區的可持續經濟增長", "它調解亞太地區國家之間的貿易紛爭", "它為亞太地區生產的貨品簽發產地來源證"], a: 1 },
+    { id:"2014 No.15", q: "下列哪項例子是影響一家香港珠寶店業務的經濟因素？(1)旅客收入上升 (2)實施個人遊 (3)交通配套改善", opts: ["只有 (1)", "只有 (2)", "只有 (1) 及 (3)", "只有 (2) 及 (3)"], a: 0 },
+    { id:"2021 No.16", q: "下列哪家商號在疫情下向持份者履行社會責任？(1)設計公司居家工作 (2)餐館折扣 (3)出版社免費閱讀", opts: ["只有 (1) 及 (2)", "只有 (1) 及 (3)", "只有 (2) 及 (3)", "(1)、(2)及 (3)"], a: 1 },
+    { id:"2012 No.5", q: "以下哪類僱員可獲豁免參加強制性公積金 (MPF) 計劃？", opts: ["建築工人", "保安員", "飲食業員工", "家務僱員"], a: 3 }
+  ];
+
+  let currentIdx = 0;
+  let timer;
+  let timeLeft = 45;
+  let isAnswering = false;
+
+  function startGame() {
+    document.getElementById('start-screen').classList.remove('active-screen');
+    document.getElementById('play-screen').classList.add('active-screen');
+    initTree();
+    loadQuestion();
+  }
+
+  function initTree() {
+    const container = document.getElementById('tree-container');
+    container.innerHTML = '';
+    moneyLevels.forEach((val, i) => {
+      const div = document.createElement('div');
+      div.className = 'level' + (i === 4 || i === 9 ? ' safe' : '');
+      div.id = `lvl-${i}`;
+      div.innerHTML = `<span>${i+1}</span> <span>$${val}</span>`;
+      container.appendChild(div);
+    });
+  }
+
+  function loadQuestion() {
+    isAnswering = false;
+    const q = questions[currentIdx];
+    document.getElementById('q-meta').textContent = q.id;
+    document.getElementById('q-text').textContent = q.q;
+    
+    // 更新獎金樹
+    document.querySelectorAll('.level').forEach(l => l.classList.remove('active'));
+    document.getElementById(`lvl-${currentIdx}`).classList.add('active');
+
+    const container = document.getElementById('options-container');
+    container.innerHTML = '';
+    q.opts.forEach((text, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'option';
+      btn.innerHTML = `<span style="color:var(--gold); font-weight:bold; margin-right:10px;">${String.fromCharCode(65+i)}:</span> ${text}`;
+      btn.onclick = () => checkAnswer(i);
+      container.appendChild(btn);
+    });
+
+    resetTimer();
+  }
+
+  function resetTimer() {
+    clearInterval(timer);
+    timeLeft = 45;
+    document.getElementById('timer').textContent = timeLeft;
+    timer = setInterval(() => {
+      timeLeft--;
+      document.getElementById('timer').textContent = timeLeft;
+      if(timeLeft <= 0) {
+        clearInterval(timer);
+        endGame("時間到！");
+      }
+    }, 1000);
+  }
+
+  function checkAnswer(userA) {
+    if(isAnswering) return;
+    isAnswering = true;
+    clearInterval(timer);
+
+    const q = questions[currentIdx];
+    const btns = document.querySelectorAll('.option');
+    btns[userA].classList.add('selected');
+
+    setTimeout(() => {
+      if(userA === q.a) {
+        btns[userA].classList.add('correct');
+        setTimeout(() => {
+          currentIdx++;
+          if(currentIdx < questions.length) loadQuestion();
+          else endGame("恭喜奪得百萬獎金！", true);
+        }, 1500);
+      } else {
+        btns[userA].classList.add('wrong');
+        btns[q.a].classList.add('correct');
+        setTimeout(() => endGame("答錯了！"), 1500);
+      }
+    }, 1000);
+  }
+
+  function handle5050() {
+    if(isAnswering) return;
+    const q = questions[currentIdx];
+    const btns = document.querySelectorAll('.option');
+    let removed = 0;
+    const indices = [0, 1, 2, 3].filter(i => i !== q.a).sort(() => Math.random() - 0.5);
+    
+    indices.slice(0, 2).forEach(i => btns[i].classList.add('hidden'));
+    document.getElementById('l-50').classList.add('used');
+    document.getElementById('l-50').onclick = null;
+  }
+
+  function handleExpert() {
+    if(isAnswering) return;
+    const q = questions[currentIdx];
+    alert(`專家意見：這題涉及 BAFS 核心知識，正確答案極可能是 (${String.fromCharCode(65 + q.a)})`);
+    document.getElementById('l-expert').classList.add('used');
+    document.getElementById('l-expert').onclick = null;
+  }
+
+  function endGame(msg, win = false) {
+    document.getElementById('play-screen').classList.remove('active-screen');
+    document.getElementById('result-screen').classList.add('active-screen');
+    document.getElementById('res-title').textContent = msg;
+    const finalScore = currentIdx === 0 ? "0" : moneyLevels[currentIdx - 1];
+    document.getElementById('res-money').textContent = "最後獲得獎金：$" + (win ? "1,000,000" : finalScore);
+  }
+</script>
+
+</body>
+</html>
